@@ -1,3 +1,96 @@
+import * as ohm from "ohm-js";
+
+const grammarSource = String.raw`
+  Arithmetic {
+    Exp = AddExp
+
+    AddExp = AddExp "+" MulExp  -- plus
+          | AddExp "-" MulExp  -- minus
+          | MulExp
+
+    MulExp = MulExp "*" UnExp  -- times
+          | MulExp "/" UnExp  -- div
+          | UnExp
+
+    UnExp = "-" PriExp -- neg
+          | PriExp
+
+    PriExp = number -- number
+          | "{" ListOf<Exp, ","> "}" -- amb
+          | "(" Exp ")" -- paren
+
+    number = digit+
+  }
+`;
+
+const g = ohm.grammar(grammarSource);
+
+// console.log("match", g.match("1 + {2, 3}").succeeded());
+// console.log("match", g.match("-1 + {2, 3}").succeeded());
+// console.log("match", g.match("1 + {2, (3 + 4)}").succeeded());
+
+const semantics = g.createSemantics().addOperation("toAst", {
+  AddExp_plus(left, _op, right) {
+    return {
+      type: "PlusNode",
+      arg1: left.toAst(),
+      arg2: right.toAst(),
+    };
+  },
+  AddExp_minus(left, _op, right) {
+    return {
+      type: "MinusNode",
+      arg1: left.toAst(),
+      arg2: right.toAst(),
+    };
+  },
+  MulExp_times(left, _op, right) {
+    return {
+      type: "TimesNode",
+      arg1: left.toAst(),
+      arg2: right.toAst(),
+    };
+  },
+  MulExp_div(left, _op, right) {
+    return {
+      type: "DivideNode",
+      arg1: left.toAst(),
+      arg2: right.toAst(),
+    };
+  },
+  UnExp_neg(_op, exp) {
+    return {
+      type: "MinusNode",
+      arg1: { type: "NumberNode", value: 0 },
+      arg2: exp.toAst(),
+    };
+  },
+  PriExp_number(number) {
+    return {
+      type: "NumberNode",
+      value: parseFloat(number.sourceString),
+    };
+  },
+  PriExp_amb(_lbrace, list, _rbrace) {
+    return {
+      type: "AmbNode",
+      values: list.toAst(),
+    };
+  },
+  PriExp_paren(_lparen, exp, _rparen) {
+    return exp.toAst();
+  },
+  NonemptyListOf(x, _sep, xs) {
+    return [x.toAst()].concat(xs.toAst());
+  },
+  EmptyListOf() {
+    return [];
+  },
+  _iter(...children) {
+    return children.map((c) => c.toAst());
+  },
+});
+
 function interpretBinaryOp(node, cont, op) {
   interpret(node.arg1, (val1) => {
     interpret(node.arg2, (val2) => {
@@ -44,63 +137,14 @@ function evaluateAST(ast) {
   return results;
 }
 
-// Example programs
-const program1 = {
-  type: "PlusNode",
-  arg1: {
-    type: "TimesNode",
-    arg1: { type: "NumberNode", value: 1 },
-    arg2: { type: "NumberNode", value: 3 },
-  },
-  arg2: { type: "NumberNode", value: 5 },
-};
+const p1_str = "{1, 3} * 5";
+const match = g.match(p1_str);
+const p1_ast = semantics(match).toAst();
+console.log("p1 ast", JSON.stringify(p1_ast, null, 2));
+console.log("Program 1:", evaluateAST(p1_ast));
 
-const program2 = {
-  type: "TimesNode",
-  arg1: {
-    type: "AmbNode",
-    values: [
-      { type: "NumberNode", value: 2 },
-      { type: "NumberNode", value: 3 },
-    ],
-  },
-  arg2: {
-    type: "AmbNode",
-    values: [
-      { type: "NumberNode", value: 5 },
-      { type: "NumberNode", value: 6 },
-    ],
-  },
-};
-
-const program3 = {
-  type: "PlusNode",
-  arg1: {
-    type: "TimesNode",
-    arg1: {
-      type: "AmbNode",
-      values: [
-        { type: "NumberNode", value: 1 },
-        { type: "NumberNode", value: 2 },
-      ],
-    },
-    arg2: {
-      type: "AmbNode",
-      values: [
-        { type: "NumberNode", value: 3 },
-        { type: "NumberNode", value: 4 },
-      ],
-    },
-  },
-  arg2: {
-    type: "AmbNode",
-    values: [
-      { type: "NumberNode", value: 5 },
-      { type: "NumberNode", value: 6 },
-    ],
-  },
-};
-
-console.log("Program 1:", evaluateAST(program1));
-console.log("Program 2:", evaluateAST(program2));
-console.log("Program 3:", evaluateAST(program3));
+const p2_str = "2 + {}";
+const match2 = g.match(p2_str);
+const p2_ast = semantics(match2).toAst();
+console.log("p2 ast", JSON.stringify(p2_ast, null, 2));
+console.log("Program 2:", evaluateAST(p2_ast));

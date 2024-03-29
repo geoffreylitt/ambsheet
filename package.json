@@ -1,0 +1,15 @@
+{
+  "name": "ambsheet",
+  "version": "1.0.0",
+  "description": "",
+  "main": "amb.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "ohm-js": "^17.1.0"
+  },
+  "type": "module"
+}
