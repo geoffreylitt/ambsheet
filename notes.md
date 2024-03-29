@@ -1,0 +1,6 @@
+- conditionals
+- range into amb
+  - crush a real range
+  - =NORMAL(min=0, max=10, step=0.1)
+- provenance
+- execution trace as nested spreadsheet

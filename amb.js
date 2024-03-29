@@ -1,5 +1,11 @@
 import * as ohm from "ohm-js";
 
+// type Value = {
+//   raw: number
+//   node: Node
+//   operands: Value[]
+// }
+
 const grammarSource = String.raw`
   Arithmetic {
     Exp = AddExp
@@ -94,7 +100,12 @@ const semantics = g.createSemantics().addOperation("toAst", {
 function interpretBinaryOp(node, cont, op) {
   interpret(node.arg1, (val1) => {
     interpret(node.arg2, (val2) => {
-      cont(op(val1, val2));
+      const raw = op(val1.raw, val2.raw);
+      cont({
+        raw,
+        node: node,
+        operands: [val1, val2],
+      });
     });
   });
 }
@@ -102,7 +113,11 @@ function interpretBinaryOp(node, cont, op) {
 function interpret(node, cont) {
   switch (node.type) {
     case "NumberNode":
-      cont(node.value);
+      cont({
+        raw: node.value,
+        node,
+        operands: [],
+      });
       break;
     case "PlusNode":
       interpretBinaryOp(node, cont, (a, b) => a + b);
@@ -118,8 +133,8 @@ function interpret(node, cont) {
       break;
     // Run the continuation for each value in the AmbNode.
     case "AmbNode":
-      for (const value of node.values) {
-        interpret(value, cont);
+      for (const expr of node.values) {
+        interpret(expr, cont);
       }
       break;
     default:
@@ -141,10 +156,10 @@ const p1_str = "{1, 3} * 5";
 const match = g.match(p1_str);
 const p1_ast = semantics(match).toAst();
 console.log("p1 ast", JSON.stringify(p1_ast, null, 2));
-console.log("Program 1:", evaluateAST(p1_ast));
+console.log("Program 1:", JSON.stringify(evaluateAST(p1_ast), null, 2));
 
 const p2_str = "2 + {}";
 const match2 = g.match(p2_str);
 const p2_ast = semantics(match2).toAst();
 console.log("p2 ast", JSON.stringify(p2_ast, null, 2));
-console.log("Program 2:", evaluateAST(p2_ast));
+console.log("Program 2:", JSON.stringify(evaluateAST(p2_ast), null, 2));
